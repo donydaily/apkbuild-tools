@@ -380,10 +380,9 @@ EOF
 }
 
 # --- EXECUTION LOGIC ---
-check_sdk
-
 case "$1" in
     init)
+        check_sdk
         init_project
         ;;
     debug)
@@ -399,12 +398,12 @@ case "$1" in
     clean)
         ./gradlew clean
         ;;
-    help)
+    *)
         echo "Cara penggunaan apkbuild:"
         echo "  apkbuild init     - Inisialisasi proyek baru"
         echo "  apkbuild debug    - Build APK versi Debug"
         echo "  apkbuild release  - Build APK versi Release"
         echo "  apkbuild clean    - Bersihkan file build"
-        exit 1
+        exit 0
         ;;
 esac
