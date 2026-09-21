@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-clear
 set -e
 
 echo "[+] Mengunduh apkbuild..."
