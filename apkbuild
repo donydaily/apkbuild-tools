@@ -54,7 +54,7 @@ check_sdk() {
                "platforms;android-34" \
                "platforms;android-35" \
                "platforms;android-36" \
-               "platforms;android-37" > /dev/null 2>&1
+               "platforms;android-37.0" > /dev/null 2>&1
 }
 
 # --- FUNGSI GENERATE TEMPLATE PROYEK ---
