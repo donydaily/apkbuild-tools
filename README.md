@@ -4,6 +4,20 @@
 
 ---
 
+## 🛠️ Tech Stack & Versi Utama
+
+| Komponen | Versi / Spesifikasi |
+| :--- | :--- |
+| **Android Gradle Plugin (AGP)** | `8.7.0` |
+| **Kotlin** | `2.0.20` |
+| **Gradle Wrapper** | `8.10` |
+| **Java (JDK)** | `21 LTS` (Temurin `21.0.4-tem`) |
+| **Compile / Target SDK** | `35` (Android 15) |
+| **Minimum SDK** | `33` (Android 13) |
+| **Android Build-Tools** | `34.0.0` |
+
+---
+
 ## 💡 Fitur Utama
 
 - 🛠️ **Auto Setup Environment**: Otomatis mengunduh dan memasang SDKMAN!, OpenJDK 21, Android Command-line Tools, serta SDK Platform (API 33 – API 37).
@@ -17,7 +31,7 @@
 
 ## 🛠️ Persyaratan Sistem
 
-Tool ini dapat berjalan di berbagai distribusi Linux (Fedora, Arch Linux, Ubuntu/Debian) dengan ketergantungan paket dasar berikut:
+Tool ini dapat berjalan di berbagai distribusi **Linux** (Fedora, Arch Linux, Ubuntu/Debian) atau **Termux** (Android) dengan ketergantungan paket dasar berikut:
 
 - `curl`, `wget`, `unzip`, `git`
 - `zip` / `tar`
@@ -29,8 +43,10 @@ Tool ini dapat berjalan di berbagai distribusi Linux (Fedora, Arch Linux, Ubuntu
 **CURL**
    ```bash
    curl -sSL https://raw.githubusercontent.com/donydaily/apkbuild-tools/main/install.sh | bash
+   curl -sSL https://raw.githubusercontent.com/donydaily/apkbuild-tools/main/install-termux.sh | bash
    ```
 **WGET**
    ```bash
    wget -qO- https://raw.githubusercontent.com/donydaily/apkbuild-tools/main/install.sh | bash
+   wget -qO- https://raw.githubusercontent.com/donydaily/apkbuild-tools/main/install-termux.sh | bash
    ```

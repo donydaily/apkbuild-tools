@@ -1,0 +1,415 @@
+#!/usr/bin/env bash
+set -e
+
+# --- KONFIGURASI ENVIRONMENT TERMUX ---
+export PREFIX="/data/data/com.termux/files/usr"
+export ANDROID_HOME="$HOME/android-sdk"
+export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
+
+# --- FUNGSI INSTALL DEPENDENSI TERMUX ---
+setup_termux_env() {
+    echo "[+] Memeriksa dependensi Termux..."
+    
+    MISSING_PKGS=""
+    for pkg in openjdk-21 wget unzip git aapt aapt2 android-tools; do
+        if ! command -v "$pkg" &> /dev/null && [ ! -f "$PREFIX/bin/$pkg" ]; then
+            MISSING_PKGS="$MISSING_PKGS $pkg"
+        fi
+    done
+
+    if [ -n "$MISSING_PKGS" ]; then
+        echo "[!] Mengunduh paket pendukung Termux:$MISSING_PKGS..."
+        pkg update -y
+        pkg upgrade -y
+        # shellcheck disable=SC2086
+        pkg install -y $MISSING_PKGS
+    fi
+
+    export JAVA_HOME="$PREFIX/lib/jvm/java-21-openjdk"
+}
+
+# --- FUNGSI CEK & INSTALL ANDROID SDK DI TERMUX ---
+check_sdk() {
+    setup_termux_env
+
+    if [ ! -d "$ANDROID_HOME/cmdline-tools/latest" ]; then
+        echo "[!] Android Command-line Tools belum terinstall."
+        echo "[-] Mengunduh Command-line Tools untuk Termux..."
+        mkdir -p "$ANDROID_HOME/cmdline-tools"
+        mkdir -p "$PREFIX/tmp"
+        wget -q --show-progress https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O "$PREFIX/tmp/cmdline-tools.zip"
+        unzip -q "$PREFIX/tmp/cmdline-tools.zip" -d "$ANDROID_HOME/cmdline-tools"
+        mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+        rm "$PREFIX/tmp/cmdline-tools.zip"
+    fi
+
+    echo "[+] Menyetujui lisensi Android SDK..."
+    yes | sdkmanager --licenses > /dev/null 2>&1 || true
+
+    echo "[+] Memastikan Platform SDK (API 33-37) & Build-Tools terpasang..."
+    sdkmanager "platform-tools" \
+               "build-tools;34.0.0" \
+               "platforms;android-33" \
+               "platforms;android-34" \
+               "platforms;android-35" \
+               "platforms;android-36" \
+               "platforms;android-37.0" > /dev/null 2>&1
+}
+
+# --- FUNGSI GENERATE TEMPLATE PROYEK ---
+init_project() {
+    echo -n "Masukkan Nama Aplikasi (default: MyAndroidApp): "
+    read -r APP_NAME
+    if [ -z "$APP_NAME" ]; then
+        APP_NAME="MyAndroidApp"
+    fi
+
+    FOLDER_NAME=$(echo "$APP_NAME" | sed 's/[^a-zA-Z0-9_-]/_/g')
+
+    if [ -d "$FOLDER_NAME" ]; then
+        echo "[!] Folder '$FOLDER_NAME' sudah ada! Silakan gunakan nama lain."
+        exit 1
+    fi
+
+    echo -n "Masukkan Package Name (contoh: com.namamu.myapp): "
+    read -r PACKAGE_NAME
+    if [ -z "$PACKAGE_NAME" ]; then
+        PACKAGE_NAME="com.example.app"
+        echo "[!] Package name kosong. Menggunakan default: $PACKAGE_NAME"
+    fi
+
+    echo "[+] Membuat direktori proyek: ./$FOLDER_NAME"
+    mkdir -p "$FOLDER_NAME"
+    cd "$FOLDER_NAME"
+
+    PKG_PATH=$(echo "$PACKAGE_NAME" | tr '.' '/')
+
+    echo "[+] Membuat struktur folder proyek..."
+    mkdir -p "app/src/main/java/$PKG_PATH"
+    mkdir -p app/src/main/res/layout
+    mkdir -p app/src/main/res/values
+    mkdir -p app/src/main/res/drawable
+    mkdir -p app/src/main/res/mipmap-anydpi-v26
+
+    echo "[+] Membuat debug.keystore lokal..."
+    keytool -genkey -v \
+        -keystore app/debug.keystore \
+        -storepass android \
+        -alias androiddebugkey \
+        -keypass android \
+        -keyalg RSA \
+        -keysize 2048 \
+        -validity 10000 \
+        -dname "CN=Android Debug,O=Android,C=US" > /dev/null 2>&1
+
+    cat << 'EOF' > build.gradle.kts
+plugins {
+    id("com.android.application") version "8.7.0" apply false
+    id("org.jetbrains.kotlin.android") version "2.0.20" apply false
+}
+EOF
+
+    cat << EOF > settings.gradle.kts
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = "$APP_NAME"
+include(":app")
+EOF
+
+    cat << 'EOF' > gradle.properties
+android.useAndroidX=true
+org.gradle.warning.mode=none
+org.gradle.configuration-cache=true
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+EOF
+
+    cat << EOF > app/build.gradle.kts
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+
+android {
+    namespace = "$PACKAGE_NAME"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "$PACKAGE_NAME"
+        minSdk = 33
+        targetSdk = 35
+        versionCode = 1
+        versionName = "1.0.0"
+    }
+
+    signingConfigs {
+        create("customDebug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
+    buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("customDebug")
+            versionNameSuffix = "-debug"
+            isDebuggable = true
+        }
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("customDebug")
+            versionNameSuffix = "-release"
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+        }
+    }
+}
+
+dependencies {
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("com.google.android.material:material:1.12.0")
+}
+EOF
+
+    touch app/proguard-rules.pro
+
+    cat << EOF > app/src/main/res/values/strings.xml
+<resources>
+    <string name="app_name">$APP_NAME</string>
+    <string name="welcome_message">Selamat Datang di Aplikasi $APP_NAME!</string>
+    <string name="btn_submit">Kirim Data</string>
+</resources>
+EOF
+
+    cat << 'EOF' > app/src/main/res/values/colors.xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#6200EE</color>
+    <color name="primary_dark">#3700B3</color>
+    <color name="accent">#03DAC6</color>
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="ic_launcher_bg">#3D5AFE</color>
+</resources>
+EOF
+
+    cat << 'EOF' > app/src/main/res/values/dimens.xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="padding_small">8dp</dimen>
+    <dimen name="padding_medium">16dp</dimen>
+    <dimen name="padding_large">24dp</dimen>
+    <dimen name="icon_size">64dp</dimen>
+    <dimen name="text_size_title">20sp</dimen>
+    <dimen name="text_size_body">14sp</dimen>
+</resources>
+EOF
+
+    cat << 'EOF' > app/src/main/res/values/attrs.xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="CustomHeaderView">
+        <attr name="headerTitle" format="string" />
+        <attr name="headerColor" format="color" />
+    </declare-styleable>
+</resources>
+EOF
+
+    cat << 'EOF' > app/src/main/res/values/styles.xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="TitleTextStyle">
+        <item name="android:textSize">@dimen/text_size_title</item>
+        <item name="android:textColor">@color/black</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+</resources>
+EOF
+
+    cat << 'EOF' > app/src/main/res/values/themes.xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MyApp" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryDark">@color/primary_dark</item>
+        <item name="colorAccent">@color/accent</item>
+    </style>
+</resources>
+EOF
+
+    cat << 'EOF' > app/src/main/res/drawable/ic_launcher_background.xml
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="@color/ic_launcher_bg"
+        android:pathData="M0,0h108v108h-108z"/>
+</vector>
+EOF
+
+    cat << 'EOF' > app/src/main/res/drawable/ic_launcher_foreground.xml
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="@color/white"
+        android:pathData="M43.2,46.8 C42,46.8 41,45.8 41,44.6 C41,43.4 42,42.4 43.2,42.4 C44.4,42.4 45.4,43.4 45.4,44.6 C45.4,45.8 44.4,46.8 43.2,46.8 Z M64.8,46.8 C63.6,46.8 62.6,45.8 62.6,44.6 C62.6,43.4 63.6,42.4 64.8,42.4 C66,42.4 67,43.4 67,44.6 C67,45.8 66,46.8 64.8,46.8 Z M36.3,37.2 L32.3,30.3 C31.8,29.4 32.1,28.2 33,27.7 C33.9,27.2 35.1,27.5 35.6,28.4 L39.8,35.7 C44.1,33.7 48.9,32.6 54,32.6 C59.1,32.6 63.9,33.7 68.2,35.7 L72.4,28.4 C72.9,27.5 74.1,27.2 75,27.7 C75.9,28.2 76.2,29.4 75.7,30.3 L71.7,37.2 C79.6,41.5 85,49.8 85,59.4 L23,59.4 C23,49.8 28.4,41.5 36.3,37.2 Z"/>
+</vector>
+EOF
+
+    cat << 'EOF' > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+</adaptive-icon>
+EOF
+
+    cat << 'EOF' > app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+</adaptive-icon>
+EOF
+
+    cat << EOF > app/src/main/AndroidManifest.xml
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MyApp">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
+EOF
+
+    cat << EOF > "app/src/main/java/$PKG_PATH/MainActivity.kt"
+package $PACKAGE_NAME
+
+import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
+
+class MainActivity : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+    }
+}
+EOF
+
+    cat << 'EOF' > app/src/main/res/layout/activity_main.xml
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="@dimen/padding_medium">
+
+    <ImageView
+        android:layout_width="@dimen/icon_size"
+        android:layout_height="@dimen/icon_size"
+        android:src="@drawable/ic_launcher_foreground"
+        android:contentDescription="App Icon Sample" />
+
+    <TextView
+        style="@style/TitleTextStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/padding_small"
+        android:text="@string/welcome_message" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/padding_large"
+        android:text="@string/btn_submit" />
+
+</LinearLayout>
+EOF
+
+    echo "[+] Memasang Gradle Wrapper 8.10..."
+    if ! command -v gradle &> /dev/null; then
+        pkg install -y gradle
+    fi
+    gradle wrapper --gradle-version 8.10 --distribution-type bin
+
+    echo "[+] Proyek $APP_NAME ($PACKAGE_NAME) berhasil dibuat di folder ./$FOLDER_NAME!"
+}
+
+# --- EXECUTION LOGIC ---
+case "$1" in
+    init)
+        check_sdk
+        init_project
+        ;;
+    debug)
+        echo "[+] Memulai proses build APK Debug..."
+        ./gradlew assembleDebug
+        echo "[+] Selesai! File APK tersimpan di: app/build/outputs/apk/debug/app-debug.apk"
+        ;;
+    release)
+        echo "[+] Memulai proses build APK Release..."
+        ./gradlew assembleRelease
+        echo "[+] Selesai! File APK tersimpan di: app/build/outputs/apk/release/app-release.apk"
+        ;;
+    clean)
+        ./gradlew clean
+        ;;
+    stop)
+        ./gradlew --stop
+        ;;
+    *)
+        echo "Cara penggunaan:"
+        echo " apkbuild init - Inisialisasi proyek Android baru"
+        echo " apkbuild debug - Build APK versi Debug"
+        echo " apkbuild release - Build APK versi Release"
+        echo " apkbuild clean - Bersihkan cache & file build"
+        exit 0
+        ;;
+esac
