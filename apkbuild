@@ -394,8 +394,7 @@ EOF
     fi
     gradle wrapper --gradle-version 8.10 --distribution-type bin
 
-    echo "[+] Proyek $APP_NAME ($PACKAGE_NAME) berhasil dibuat di folder ./$FOLDER_NAME!"
-    echo "[+] Silakan masuk ke folder proyek dengan: cd $FOLDER_NAME"
+    echo "[+] Proyek $APP_NAME ($PACKAGE_NAME) berhasil dibuat di folder $FOLDER_NAME!"
 }
 
 # --- EXECUTION LOGIC ---
