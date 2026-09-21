@@ -134,6 +134,7 @@ org.gradle.warning.mode=none
 org.gradle.configuration-cache=true
 org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
 android.aapt2FromMaven=false
+android.aapt2.override=/data/data/com.termux/files/usr/bin/aapt2
 EOF
 
     cat << EOF > app/build.gradle.kts
@@ -391,12 +392,12 @@ case "$1" in
         ;;
     debug)
         echo "[+] Memulai proses build APK Debug..."
-        ./gradlew assembleDebug
+        ./gradlew assembleDebug --no-configuration-cache -Pandroid.aapt2.override=$PREFIX/bin/aapt2
         echo "[+] Selesai! File APK tersimpan di: app/build/outputs/apk/debug/app-debug.apk"
         ;;
     release)
         echo "[+] Memulai proses build APK Release..."
-        ./gradlew assembleRelease
+        ./gradlew assembleRelease --no-configuration-cache -Pandroid.aapt2.override=$PREFIX/bin/aapt2
         echo "[+] Selesai! File APK tersimpan di: app/build/outputs/apk/release/app-release.apk"
         ;;
     clean)
