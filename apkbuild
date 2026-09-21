@@ -399,7 +399,7 @@ case "$1" in
     clean)
         ./gradlew clean
         ;;
-    *)
+    help)
         echo "Cara penggunaan apkbuild:"
         echo "  apkbuild init     - Inisialisasi proyek baru"
         echo "  apkbuild debug    - Build APK versi Debug"

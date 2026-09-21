@@ -6,4 +6,4 @@ sudo curl -sSL https://raw.githubusercontent.com/donydaily/apkbuild-tools/main/a
 echo "[+] Memberikan izin eksekusi..."
 sudo chmod +x /usr/local/bin/apkbuild
 echo "[+] apkbuild berhasil terpasang di /usr/local/bin/apkbuild"
-echo "[+] Jalankan 'apkbuild' untuk melihat petunjuk penggunaan."
+echo "[+] Jalankan 'apkbuild help' untuk melihat petunjuk penggunaan."
