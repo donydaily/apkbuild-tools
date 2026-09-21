@@ -28,9 +28,9 @@ Tool ini dapat berjalan di berbagai distribusi Linux (Fedora, Arch Linux, Ubuntu
 
 **CURL**
    ```bash
-   curl -sSL https://raw.githubusercontent.com/donydaily/apkbuild/main/install.sh | bash
+   curl -sSL https://raw.githubusercontent.com/donydaily/apkbuild-tools/main/install.sh | bash
    ```
 **WGET**
    ```bash
-   wget -qO- https://raw.githubusercontent.com/donydaily/apkbuild/main/install.sh | bash
+   wget -qO- https://raw.githubusercontent.com/donydaily/apkbuild-tools/main/install.sh | bash
    ```
