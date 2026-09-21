@@ -138,6 +138,7 @@ EOF
 
     # gradle.properties (Optimalisasi & Hilangkan Warning Deprecation)
     cat << 'EOF' > gradle.properties
+android.useAndroidX=true
 org.gradle.warning.mode=none
 org.gradle.configuration-cache=true
 org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
