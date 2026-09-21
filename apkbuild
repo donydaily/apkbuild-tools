@@ -32,33 +32,23 @@ setup_sdkman_and_java
 export ANDROID_HOME="$HOME/Android/Sdk"
 export PATH="$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
 
-# --- FUNGSI CEK & INSTALL ANDROID SDK ---
-check_sdk() {
-    if [ ! -d "$ANDROID_HOME/cmdline-tools/latest" ]; then
-        echo "[!] Android Command-line Tools belum terinstall."
-        echo "[-] Mengunduh Command-line Tools..."
-        mkdir -p "$ANDROID_HOME/cmdline-tools"
-        wget -q --show-progress https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmdline-tools.zip
-        unzip -q /tmp/cmdline-tools.zip -d "$ANDROID_HOME/cmdline-tools"
-        mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
-        rm /tmp/cmdline-tools.zip
-    fi
-
-    echo "[+] Menyetujui lisensi Android SDK..."
-    yes | sdkmanager --licenses > /dev/null 2>&1 || true
-
-    echo "[+] Memastikan Platform SDK (API 33-37) & Build-Tools terpasang..."
-    sdkmanager "platform-tools" \
-               "build-tools;34.0.0" \
-               "platforms;android-33" \
-               "platforms;android-34" \
-               "platforms;android-35" \
-               "platforms;android-36" \
-               "platforms;android-37.0" > /dev/null 2>&1
-}
-
 # --- FUNGSI GENERATE TEMPLATE PROYEK ---
 init_project() {
+    echo -n "Masukkan Nama Aplikasi (default: MyAndroidApp): "
+    read -r APP_NAME
+    if [ -z "$APP_NAME" ]; then
+        APP_NAME="MyAndroidApp"
+    fi
+
+    # Buat nama folder dari nama aplikasi (menghapus spasi & karakter aneh)
+    FOLDER_NAME=$(echo "$APP_NAME" | sed 's/[^a-zA-Z0-9_-]/_/g')
+
+    # Cek jika folder sudah ada
+    if [ -d "$FOLDER_NAME" ]; then
+        echo "[!] Folder '$FOLDER_NAME' sudah ada! Silakan gunakan nama lain atau hapus folder lama."
+        exit 1
+    fi
+
     echo -n "Masukkan Package Name (contoh: com.namamu.myapp): "
     read -r PACKAGE_NAME
 
@@ -67,11 +57,10 @@ init_project() {
         echo "[!] Package name kosong. Menggunakan default: $PACKAGE_NAME"
     fi
 
-    echo -n "Masukkan Nama Aplikasi (default: MyAndroidApp): "
-    read -r APP_NAME
-    if [ -z "$APP_NAME" ]; then
-        APP_NAME="MyAndroidApp"
-    fi
+    # Buat folder proyek utama dan masuk ke dalamnya
+    echo "[+] Membuat direktori proyek: ./$FOLDER_NAME"
+    mkdir -p "$FOLDER_NAME"
+    cd "$FOLDER_NAME"
 
     PKG_PATH=$(echo "$PACKAGE_NAME" | tr '.' '/')
 
@@ -120,6 +109,13 @@ dependencyResolutionManagement {
 }
 rootProject.name = "$APP_NAME"
 include(":app")
+EOF
+
+    # gradle.properties (Optimalisasi & Hilangkan Warning Deprecation)
+    cat << 'EOF' > gradle.properties
+org.gradle.warning.mode=none
+org.gradle.configuration-cache=true
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
 EOF
 
     # app/build.gradle.kts
@@ -171,8 +167,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
     }
-    kotlinOptions {
-        jvmTarget = "21"
+
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
     }
 }
 
@@ -185,7 +182,7 @@ EOF
 
     touch app/proguard-rules.pro
 
-    # 1. res/values/strings.xml
+    # Resources XML
     cat << EOF > app/src/main/res/values/strings.xml
 <resources>
     <string name="app_name">$APP_NAME</string>
@@ -194,7 +191,6 @@ EOF
 </resources>
 EOF
 
-    # 2. res/values/colors.xml
     cat << 'EOF' > app/src/main/res/values/colors.xml
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -207,7 +203,6 @@ EOF
 </resources>
 EOF
 
-    # 3. res/values/dimens.xml
     cat << 'EOF' > app/src/main/res/values/dimens.xml
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -220,7 +215,6 @@ EOF
 </resources>
 EOF
 
-    # 4. res/values/attrs.xml
     cat << 'EOF' > app/src/main/res/values/attrs.xml
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -231,7 +225,6 @@ EOF
 </resources>
 EOF
 
-    # 5. res/values/styles.xml
     cat << 'EOF' > app/src/main/res/values/styles.xml
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -243,7 +236,6 @@ EOF
 </resources>
 EOF
 
-    # 6. res/values/themes.xml
     cat << 'EOF' > app/src/main/res/values/themes.xml
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -255,7 +247,7 @@ EOF
 </resources>
 EOF
 
-    # 7. Adaptive App Icon (XML Background & Foreground)
+    # Adaptive Icon
     cat << 'EOF' > app/src/main/res/drawable/ic_launcher_background.xml
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
@@ -368,15 +360,15 @@ EOF
 </LinearLayout>
 EOF
 
-    # Generate Gradle Wrapper 8.10
+    # Generate Gradle Wrapper
     echo "[+] Memasang Gradle Wrapper 8.10..."
     if ! command -v gradle &> /dev/null; then
-        echo "[+] Memasang Gradle via SDKMAN! untuk pengunduhan awal wrapper..."
         sdk install gradle 8.10 > /dev/null 2>&1 || true
     fi
     gradle wrapper --gradle-version 8.10 --distribution-type bin
 
-    echo "[+] Proyek $APP_NAME ($PACKAGE_NAME) berhasil diinisialisasi!"
+    echo "[+] Proyek $APP_NAME ($PACKAGE_NAME) berhasil dibuat di folder ./$FOLDER_NAME!"
+    echo "[+] Silakan masuk ke folder proyek dengan: cd $FOLDER_NAME"
 }
 
 # --- EXECUTION LOGIC ---
@@ -397,6 +389,9 @@ case "$1" in
         ;;
     clean)
         ./gradlew clean
+        ;;
+    stop)
+        ./gradlew --stop
         ;;
     *)
         echo "Cara penggunaan apkbuild:"
