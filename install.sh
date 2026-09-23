@@ -346,7 +346,7 @@ esac
 EOF
 
 # Beri izin eksekusi
-sudo chmod +x /usr/local/bin/apktool-helper
+sudo chmod +x /usr/local/bin/apktoolc
 
 echo "[+] Instalasi selesai!"
 echo "[+] Silakan buka terminal baru atau restart session shell kamu untuk mengaktifkan 'apkbuild'."
