@@ -4,8 +4,8 @@ set -e
 PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 
 echo "[+] Mengunduh dan memasang apkbuild-termux ke $PREFIX/bin/..."
-curl -sSL https://raw.githubusercontent.com/username/apkbuild-tools/main/apkbuild-termux -o "$PREFIX/bin/apkbuild"
-curl -sSL https://raw.githubusercontent.com/username/apkbuild-tools/main/apktoolc-termux -o "$PREFIX/bin/apktoolc"
+curl -sSL https://raw.githubusercontent.com/donydaily/apkbuild-tools/main/apkbuild-termux -o "$PREFIX/bin/apkbuild"
+curl -sSL https://raw.githubusercontent.com/donydaily/apkbuild-tools/main/apktoolc-termux -o "$PREFIX/bin/apktoolc"
 chmod +x "$PREFIX/bin/apkbuild"
 chmod +x "$PREFIX/bin/apktoolc"
 
