@@ -7,7 +7,7 @@ echo "[+] Mengunduh dan memasang apkbuild-termux ke $PREFIX/bin/..."
 curl -sSL https://raw.githubusercontent.com/username/apkbuild-tools/main/apkbuild-termux -o "$PREFIX/bin/apkbuild"
 curl -sSL https://raw.githubusercontent.com/username/apkbuild-tools/main/apktoolc-termux -o "$PREFIX/bin/apktoolc"
 chmod +x "$PREFIX/bin/apkbuild"
-chmos +x "$PREFIX/bin/apktoolc"
+chmod +x "$PREFIX/bin/apktoolc"
 
 SHELL_FUNC_POSIX='
 # apkbuild auto-cd function
