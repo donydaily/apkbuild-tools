@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e
 
 # Warna output terminal
 GREEN='\033[0;32m'
