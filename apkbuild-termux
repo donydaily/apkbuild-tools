@@ -22,10 +22,50 @@ setup_termux_env() {
         pkg update -y
         pkg upgrade -y
         # shellcheck disable=SC2086
+        pkg install termux-api -y
         pkg install -y $MISSING_PKGS
     fi
 
     export JAVA_HOME="$PREFIX/lib/jvm/java-21-openjdk"
+}
+
+# --- FUNGSI PATCH AAPT2 UNTUK TERMUX ---
+patch_aapt2_termux() {
+    AAPT2_SYS="$PREFIX/bin/aapt2"
+    if [ -d "$HOME/.gradle/caches" ]; then
+        # Cari semua berkas bernama 'aapt2' di dalam folder cache Gradle
+        find "$HOME/.gradle/caches/" -name "aapt2" -type f 2>/dev/null | while read -r biner; do
+            # Cek jika berkas bukan merupakan wrapper shell script
+            if ! head -n 1 "$biner" 2>/dev/null | grep -q "#!/bin/sh"; then
+                rm -f "$biner"
+                cat << EOF > "$biner"
+#!/bin/sh
+exec $AAPT2_SYS "\$@"
+EOF
+                chmod +x "$biner"
+            fi
+        done
+    fi
+}
+
+# --- AUTO INSTALL APK ---
+auto_install_apk() {
+    local apk_path="$1"
+    
+    if [ -f "$apk_path" ]; then
+        echo "[+] Menginstall APK via ADB..."
+        
+        # Pastikan server ADB berjalan dan terhubung
+        if adb devices | grep -q "device$"; then
+            adb install -r "$apk_path"
+            echo "[+] Instalasi Berhasil!"
+        else
+            echo "[!] ADB tidak terhubung. Sambungkan ADB via Wireless Debugging terlebih dahulu."
+            echo "[!] File APK tersimpan di: $apk_path"
+        fi
+    else
+        echo "[!] File APK tidak ditemukan di: $apk_path"
+    fi
 }
 
 # --- FUNGSI CEK & INSTALL ANDROID SDK DI TERMUX ---
@@ -131,10 +171,11 @@ EOF
     cat << 'EOF' > gradle.properties
 android.useAndroidX=true
 org.gradle.warning.mode=none
-org.gradle.configuration-cache=true
+org.gradle.configuration-cache=false
 org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
 android.aapt2FromMaven=false
 android.aapt2.override=/data/data/com.termux/files/usr/bin/aapt2
+android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2
 EOF
 
     cat << EOF > app/build.gradle.kts
@@ -274,8 +315,12 @@ EOF
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:fillColor="@color/ic_launcher_bg"
-        android:pathData="M0,0h108v108h-108z"/>
+        android:pathData="M0,0h108v108h-108z"
+        android:fillColor="#0D1117" />
+    <!-- Gradient Circle Overlay -->
+    <path
+        android:pathData="M54,14 A40,40 0 1,0 54,94 A40,40 0 1,0 54,14 Z"
+        android:fillColor="#161B22" />
 </vector>
 EOF
 
@@ -286,19 +331,49 @@ EOF
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    
+    <!-- Outer Tech Ring -->
     <path
-        android:fillColor="@color/white"
-        android:pathData="M43.2,46.8 C42,46.8 41,45.8 41,44.6 C41,43.4 42,42.4 43.2,42.4 C44.4,42.4 45.4,43.4 45.4,44.6 C45.4,45.8 44.4,46.8 43.2,46.8 Z M64.8,46.8 C63.6,46.8 62.6,45.8 62.6,44.6 C62.6,43.4 63.6,42.4 64.8,42.4 C66,42.4 67,43.4 67,44.6 C67,45.8 66,46.8 64.8,46.8 Z M36.3,37.2 L32.3,30.3 C31.8,29.4 32.1,28.2 33,27.7 C33.9,27.2 35.1,27.5 35.6,28.4 L39.8,35.7 C44.1,33.7 48.9,32.6 54,32.6 C59.1,32.6 63.9,33.7 68.2,35.7 L72.4,28.4 C72.9,27.5 74.1,27.2 75,27.7 C75.9,28.2 76.2,29.4 75.7,30.3 L71.7,37.2 C79.6,41.5 85,49.8 85,59.4 L23,59.4 C23,49.8 28.4,41.5 36.3,37.2 Z"/>
+        android:pathData="M54,26 A28,28 0 1,0 54,82 A28,28 0 1,0 54,26 Z"
+        android:strokeWidth="2.5"
+        android:strokeColor="#30363D"
+        android:fillColor="#00000000"/>
+        
+    <!-- Code Brackets '<' & '>' -->
+    <path
+        android:pathData="M38,46 L30,54 L38,62"
+        android:strokeWidth="4"
+        android:strokeColor="#10B981"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"/>
+        
+    <path
+        android:pathData="M70,46 L78,54 L70,62"
+        android:strokeWidth="4"
+        android:strokeColor="#10B981"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"/>
+
+    <!-- Center Lightning / Rocket Symbol -->
+    <path
+        android:pathData="M56,40 L46,55 L53,55 L50,68 L62,51 L55,51 Z"
+        android:fillColor="#06B6D4"
+        android:strokeWidth="1"
+        android:strokeColor="#38BDF8"/>
 </vector>
 EOF
 
     cat << 'EOF' > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
 <?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@drawable/ic_launcher_background"/>
-    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+    <background android:drawable="@drawable/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
 </adaptive-icon>
 EOF
+
+# cp app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
 
     cat << 'EOF' > app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -391,14 +466,26 @@ case "$1" in
         init_project
         ;;
     debug)
+        patch_aapt2_termux
         echo "[+] Memulai proses build APK Debug..."
-        ./gradlew assembleDebug --no-configuration-cache -Pandroid.aapt2.override=$PREFIX/bin/aapt2
-        echo "[+] Selesai! File APK tersimpan di: app/build/outputs/apk/debug/app-debug.apk"
+        if ./gradlew assembleDebug --no-configuration-cache -Pandroid.aapt2.override=$PREFIX/bin/aapt2; then
+            APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+            echo "[+] Build Berhasil! APK tersimpan di: $APK_PATH"
+            
+            # Panggil auto-install di sini
+            auto_install_apk "$APK_PATH"
+        fi
         ;;
     release)
+        patch_aapt2_termux
         echo "[+] Memulai proses build APK Release..."
-        ./gradlew assembleRelease --no-configuration-cache -Pandroid.aapt2.override=$PREFIX/bin/aapt2
-        echo "[+] Selesai! File APK tersimpan di: app/build/outputs/apk/release/app-release.apk"
+        if ./gradlew assembleRelease --no-configuration-cache -Pandroid.aapt2.override=$PREFIX/bin/aapt2; then
+            APK_PATH="app/build/outputs/apk/release/app-release.apk"
+            echo "[+] Build Berhasil! APK tersimpan di: $APK_PATH"
+            
+            # Panggil auto-install di sini
+            auto_install_apk "$APK_PATH"
+        fi
         ;;
     clean)
         ./gradlew clean
